@@ -3,8 +3,6 @@ import cv2
 import torch
 import streamlit as st
 from PIL import Image
-from openpyxl import Workbook
-from openpyxl.styles import Font
 import datetime
 import torchvision.models as m
 from torchvision import transforms
@@ -57,7 +55,11 @@ def get_device():
     return device
 
 
-def process_video(video_file, save_video, save_excel, progress_bar, status_text, output_dir=None):
+def format_time(seconds):
+    return str(datetime.timedelta(seconds=seconds)).split(".")[0]
+
+
+def process_video(video_file, show_results, progress_bar, status_text):
     device = get_device()
     _, data_transform = data_trans()
 
@@ -76,34 +78,15 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text,
     cap = cv2.VideoCapture(temp_video.name)
     if not cap.isOpened():
         status_text.error("无法打开视频文件")
-        return None, None
+        return
 
     # Get video info
     fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-    # Create Excel workbook if needed
-    if save_excel:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Video Classification Results"
-        headers = ["时间范围(秒)", "识别类别"]
-        for col, header in enumerate(headers, 1):
-            ws.cell(row=1, column=col, value=header).font = Font(bold=True)
-
-    # Create video output if needed
-    output_video_path = None
-    if save_video:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        video_name = os.path.splitext(os.path.basename(video_file.name))[0] + f"_output_{timestamp}.mp4"
-        output_video_path = os.path.join(output_dir, video_name) if output_dir else video_name
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
+    # Prepare results container
+    results = []
     current_second = -1
-    row_idx = 2
     last_class = None
     start_time = 0
     end_time = 0
@@ -111,6 +94,11 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text,
     frame_count = 0
     video_placeholder = st.empty()
     stop_button = st.sidebar.button("停止处理")
+
+    # Create results display area in sidebar
+    results_placeholder = st.sidebar.empty()
+    if show_results:
+        results_placeholder.markdown("### 分类结果")
 
     with torch.no_grad():
         while cap.isOpened():
@@ -120,10 +108,6 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text,
 
             ret, frame = cap.read()
             if not ret:
-                if last_class is not None and save_excel:
-                    time_range = f"{start_time}~{end_time}" if start_time != end_time else str(start_time)
-                    ws.cell(row=row_idx, column=1, value=time_range)
-                    ws.cell(row=row_idx, column=2, value=last_class)
                 break
 
             frame_count += 1
@@ -160,40 +144,32 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text,
                 current_second = second
 
                 if current_class != last_class:
-                    if last_class is not None and save_excel:
-                        time_range = f"{start_time}~{end_time}" if start_time != end_time else str(start_time)
-                        ws.cell(row=row_idx, column=1, value=time_range)
-                        ws.cell(row=row_idx, column=2, value=last_class)
-                        row_idx += 1
+                    if last_class is not None and show_results:
+                        time_range = f"{format_time(start_time)}-{format_time(end_time)}" if start_time != end_time else format_time(start_time)
+                        if not results or results[-1] != f"{time_range}: {last_class}":
+                            results.append(f"{time_range}: {last_class}")
                     start_time = second
                     last_class = current_class
                 end_time = second
+
+                # Update results display only when second changes
+                if show_results and results:
+                    results_placeholder.markdown("### 分类结果\n" + "\n".join(results))
 
             # Display the frame
             rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             video_placeholder.image(rgb_image, channels="RGB")
 
-            # Save result if needed
-            if save_video:
-                out.write(frame)
-
-    # Save Excel file
-    output_excel_path = None
-    if save_excel:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_name = os.path.splitext(os.path.basename(video_file.name))[0] + f"_classification_{timestamp}.xlsx"
-        output_excel_path = os.path.join(output_dir, excel_name) if output_dir else excel_name
-        wb.save(output_excel_path)
+    # Add the last time range if needed
+    if last_class is not None and show_results:
+        time_range = f"{format_time(start_time)}-{format_time(end_time)}" if start_time != end_time else format_time(start_time)
+        if not results or results[-1] != f"{time_range}: {last_class}":
+            results.append(f"{time_range}: {last_class}")
+        results_placeholder.markdown("### 分类结果\n" + "\n".join(results))
 
     # Release resources
     cap.release()
-    if save_video:
-        out.release()
-
-    # Clean up temp file
     os.unlink(temp_video.name)
-
-    return output_video_path, output_excel_path
 
 
 def main():
@@ -216,12 +192,7 @@ def main():
         )
 
         st.header("输出选项")
-        save_video = st.checkbox("保存识别结果视频", value=True)
-        save_excel = st.checkbox("保存Excel分类结果", value=True)
-
-        # Add output directory selection
-        output_dir = st.text_input("输出目录 (可选)", value="",
-                                   help="留空则保存在当前目录")
+        show_results = st.checkbox("显示分类结果", value=True)
 
         if st.button("开始分类"):
             if not video_file:
@@ -235,22 +206,14 @@ def main():
         status_text = st.empty()
 
         try:
-            output_video, output_excel = process_video(
+            process_video(
                 video_file,
-                save_video,
-                save_excel,
+                show_results,
                 progress_bar,
-                status_text,
-                output_dir if output_dir else None  # Pass None if empty
+                status_text
             )
 
-            message = "处理完成！"
-            if output_video:
-                message += f"\n视频已保存到: {output_video}"
-            if output_excel:
-                message += f"\nExcel已保存到: {output_excel}"
-
-            status_text.success(message)
+            status_text.success("处理完成！")
             st.balloons()
 
         except Exception as e:
