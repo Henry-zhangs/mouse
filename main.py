@@ -64,7 +64,7 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text)
 
     # Create model
     net = create_model(model='b0', num=len(LABELS), weights=False)
-    net.load_state_dict(torch.load('./runs/weights/best.pth'), strict=False)
+    net.load_state_dict(torch.load('./runs/weights/best.pth'), strict=False,device=device)
     net.to(device)
     net.eval()
 
