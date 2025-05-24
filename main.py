@@ -171,7 +171,7 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text)
 
             # Display the frame
             rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            video_placeholder.image(rgb_image, channels="RGB", use_container_width=True)
+            video_placeholder.image(rgb_image, channels="RGB")
 
             # Save result if needed
             if save_video:
@@ -218,7 +218,7 @@ def main():
         save_video = st.checkbox("保存识别结果视频", value=True)
         save_excel = st.checkbox("保存Excel分类结果", value=True)
 
-        if st.button("开始分类", use_container_width=True):
+        if st.button("开始分类"):
             if not video_file:
                 st.error("请先选择视频文件")
             else:
