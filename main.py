@@ -10,7 +10,6 @@ import torchvision.models as m
 from torchvision import transforms
 import tempfile
 
-
 # Constants
 LABELS = {
     "0": "Convusion",
@@ -58,13 +57,13 @@ def get_device():
     return device
 
 
-def process_video(video_file, save_video, save_excel, progress_bar, status_text):
+def process_video(video_file, save_video, save_excel, progress_bar, status_text, output_dir=None):
     device = get_device()
     _, data_transform = data_trans()
 
     # Create model
     net = create_model(model='b0', num=len(LABELS), weights=False)
-    net.load_state_dict(torch.load('./runs/weights/best.pth',map_location=device), strict=False)
+    net.load_state_dict(torch.load('./runs/weights/best.pth', map_location=device), strict=False)
     net.to(device)
     net.eval()
 
@@ -98,7 +97,8 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text)
     output_video_path = None
     if save_video:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_video_path = os.path.splitext(video_file.name)[0] + f"_output_{timestamp}.mp4"
+        video_name = os.path.splitext(os.path.basename(video_file.name))[0] + f"_output_{timestamp}.mp4"
+        output_video_path = os.path.join(output_dir, video_name) if output_dir else video_name
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
 
@@ -181,7 +181,8 @@ def process_video(video_file, save_video, save_excel, progress_bar, status_text)
     output_excel_path = None
     if save_excel:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_excel_path = os.path.splitext(video_file.name)[0] + f"_classification_{timestamp}.xlsx"
+        excel_name = os.path.splitext(os.path.basename(video_file.name))[0] + f"_classification_{timestamp}.xlsx"
+        output_excel_path = os.path.join(output_dir, excel_name) if output_dir else excel_name
         wb.save(output_excel_path)
 
     # Release resources
@@ -218,6 +219,10 @@ def main():
         save_video = st.checkbox("保存识别结果视频", value=True)
         save_excel = st.checkbox("保存Excel分类结果", value=True)
 
+        # Add output directory selection
+        output_dir = st.text_input("输出目录 (可选)", value="",
+                                   help="留空则保存在当前目录")
+
         if st.button("开始分类"):
             if not video_file:
                 st.error("请先选择视频文件")
@@ -235,7 +240,8 @@ def main():
                 save_video,
                 save_excel,
                 progress_bar,
-                status_text
+                status_text,
+                output_dir if output_dir else None  # Pass None if empty
             )
 
             message = "处理完成！"
