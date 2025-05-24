@@ -4,3 +4,4 @@ torch==2.2.1  # 确保兼容性
 streamlit==1.29.0
 pillow==10.1.0  # PIL 的维护版本
 openpyxl==3.1.5
+torchvision==0.19.1
