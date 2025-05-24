@@ -1,7 +1,5 @@
-
-opencv_python==4.11.0.86
-openpyxl==3.1.5
-Pillow==11.2.1
-torch==2.4.1
-torchvision==0.19.1
-opencv-python-headless==4.9.0.80
+numpy==1.26.4  # 使用稳定的 NumPy 1.x 版本
+opencv-python-headless==4.9.0.80  # 使用 headless 版本避免 libGL 问题
+torch==2.2.1  # 确保兼容性
+streamlit==1.29.0
+pillow==10.1.0  # PIL 的维护版本
