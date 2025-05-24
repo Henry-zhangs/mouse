@@ -269,7 +269,7 @@ def main():
             ret, frame = cap.read()
             if ret:
                 rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                st.image(rgb_image, caption="视频预览 (第一帧)", channels="RGB",use_container_width=True)
+                st.image(rgb_image, caption="视频预览 (第一帧)", channels="RGB")
 
         cap.release()
         os.unlink(temp_video.name)
