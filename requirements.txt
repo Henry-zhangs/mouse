@@ -1,5 +1,4 @@
 
-pip install --upgrade pip
 opencv_python==4.11.0.86
 openpyxl==3.1.5
 Pillow==11.2.1
